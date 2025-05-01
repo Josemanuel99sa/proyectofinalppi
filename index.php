@@ -1,3 +1,53 @@
+<?php
+session_start();
+$db = new mysqli('localhost', 'root', '', 'figuras'); // Ajusta credenciales
+
+// Procesar registro
+if (isset($_POST['registrar'])) {
+    $nombre = $db->real_escape_string($_POST['nombre']);
+    $correo = $db->real_escape_string($_POST['correo']);
+    $password =$db->real_escape_string($_POST['password']);
+    $nacimiento = $db->real_escape_string($_POST['nacimiento']);
+    $tarjeta = $db->real_escape_string($_POST['tarjeta']);
+    $direccion = $db->real_escape_string($_POST['direccion']);
+    
+    $sql = "INSERT INTO usuarios (nombre, correo, password, nacimiento, tarjetabancaria, direccionpostal) 
+            VALUES ('$nombre', '$correo', '$password', '$nacimiento', '$tarjeta', '$direccion')";
+    
+    if ($db->query($sql)) {
+        $_SESSION['mensaje'] = "¡Registro exitoso!";
+    } else {
+        $_SESSION['error'] = "Error al registrar: " . $db->error;
+    }
+}
+
+// Procesar login
+if (isset($_POST['ingresar'])) {
+    $nombre = $db->real_escape_string($_POST['nombre']);
+    $password = $_POST['password']; 
+    
+    $resultado = $db->query("SELECT * FROM usuarios WHERE nombre = '$nombre'");
+    
+    if ($resultado && $resultado->num_rows > 0) {
+        $fila = $resultado->fetch_assoc();
+        if ($password === $fila['password']) {
+            $_SESSION['usuario'] = $fila['nombre'];
+            $_SESSION['usuario_id'] = $fila['id'];
+        } else {
+            $_SESSION['error'] = "Contraseña incorrecta";
+        }
+    } else {
+        $_SESSION['error'] = "Usuario no encontrado";
+    }
+}
+
+// Cerrar sesión
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header("Location: ".$_SERVER['PHP_SELF']);
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -17,12 +67,12 @@
         <!-- Navigation-->
         <nav class="navbar navbar-expand-lg navbar-light bg-light">
             <div class="container px-4 px-lg-5">
-                <a class="navbar-brand" href="#!">Start Bootstrap</a>
+                <a class="navbar-brand" href="index.php">Start Bootstrap</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
                         <li class="nav-item"><a class="nav-link active" aria-current="page" href="#!">Home</a></li>
-                        <li class="nav-item"><a class="nav-link" href="about.html">About</a></li>
+                        <li class="nav-item"><a class="nav-link" href="about.php">About</a></li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Shop</a>
                             <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
@@ -33,16 +83,121 @@
                             </ul>
                         </li>
                     </ul>
-                    <form class="d-flex">
-                        <button class="btn btn-outline-dark" type="submit">
+                    <div class="d-flex">
+                        <?php if(isset($_SESSION['usuario'])): ?>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-dark dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown">
+                                    <i class="bi bi-person-fill me-1"></i>
+                                    <?php echo htmlspecialchars($_SESSION['usuario']); ?>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="?logout=1">Cerrar sesión</a></li>
+                                </ul>
+                            </div>
+                        <?php else: ?>
+                            <button class="btn btn-outline-dark me-2" data-bs-toggle="modal" data-bs-target="#loginModal">
+                                <i class="bi bi-box-arrow-in-right me-1"></i>
+                                Login
+                            </button>
+                            <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#registerModal">
+                                <i class="bi bi-person-plus me-1"></i>
+                                Registro
+                            </button>
+                        <?php endif; ?>
+                        <button class="btn btn-outline-dark ms-2" type="submit">
                             <i class="bi-cart-fill me-1"></i>
                             Cart
                             <span class="badge bg-dark text-white ms-1 rounded-pill">0</span>
                         </button>
-                    </form>
+                    </div>
                 </div>
             </div>
         </nav>
+
+        <!-- Modal Login -->
+        <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Iniciar Sesión</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form method="post">
+                        <div class="modal-body">
+                            <?php if(isset($_SESSION['error'])): ?>
+                                <div class="alert alert-danger"><?php echo $_SESSION['error']; unset($_SESSION['error']); ?></div>
+                            <?php endif; ?>
+                            <div class="mb-3">
+                                <label class="form-label">Nombre de usuario</label>
+                                <input type="text" class="form-control" name="nombre" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Contraseña</label>
+                                <input type="password" class="form-control" name="password" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                            <button type="submit" name="ingresar" class="btn btn-primary">Ingresar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Registro -->
+        <div class="modal fade" id="registerModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Registrarse</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form method="post">
+                        <div class="modal-body">
+                            <?php if(isset($_SESSION['mensaje'])): ?>
+                                <div class="alert alert-success"><?php echo $_SESSION['mensaje']; unset($_SESSION['mensaje']); ?></div>
+                            <?php endif; ?>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Nombre de usuario</label>
+                                <input type="text" class="form-control" name="nombre" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Correo electrónico</label>
+                                <input type="email" class="form-control" name="correo" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Contraseña</label>
+                                <input type="password" class="form-control" name="password" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Fecha de nacimiento</label>
+                                <input type="date" class="form-control" name="nacimiento" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Tarjeta bancaria</label>
+                                <input type="text" class="form-control" name="tarjeta" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Dirección postal</label>
+                                <input type="text" class="form-control" name="direccion" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                            <button type="submit" name="registrar" class="btn btn-primary">Registrarse</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <!-- Header-->
         <header class="bg-dark py-5">
             <div class="container px-4 px-lg-5 my-5">
@@ -71,7 +226,7 @@
                             </div>
                             <!-- Product actions-->
                             <div class="card-footer p-4 pt-0 border-top-0 bg-transparent">
-                                <div class="text-center"><a class="btn btn-outline-dark mt-auto" href="#">View options</a></div>
+                                <div class="text-center"><a class="btn btn-outline-dark mt-auto" href="detalles/detalles.php">View options</a></div>
                             </div>
                         </div>
                     </div>
